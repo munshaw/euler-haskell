@@ -1,0 +1,287 @@
+#!/bin/bash
+
+set -e
+
+function help {
+    echo "Uppercase to run for all problems (./euler BE)."
+    echo "Lowercase to run for problem n (./euler be 1)"
+    echo "be   Build executable."
+    echo "bc   Build chapter pdf."
+    echo "bb   Build book (lowercase only)."
+    echo "df   Remove extra files."
+    echo "dk   Remove extra book files (lowercase only)."
+    echo "de   Remove executable."
+    echo "dc   Remove chapter pdf."
+    echo "db   Remove book (lowercase only)."
+    echo "d    Run all cleaning operations."
+    echo "s    Run solution and show answer."
+    echo "h    Run solution and hide answer."
+    echo "g    Open ghci (lowercase only)."
+}
+
+function build {
+    pushd "problem$1" &>/dev/null
+    echo -n -e "Building problem$1\t->\t"
+
+    ghc -O2 -fllvm "problem$1" &>/dev/null
+
+    echo "done"
+    popd &>/dev/null
+}
+
+function buildpdf {
+    pushd "problem$1" &>/dev/null
+    echo -n -e "Building problem$1 pdf\t->\t"
+
+    pdflatex -shell-escape "problem$1.lhs" &>/dev/null
+
+    echo "done"
+    popd &>/dev/null
+}
+
+function buildbook {
+    echo -n -e "Building book\t\t->\t"
+
+    for p in $(ls | grep 'problem*' | sed 's/problem//')
+    do
+        cp problem$p/problem$p.lhs book/problem$p.tex | true
+    done
+
+    pushd book &>/dev/null
+    pdflatex -shell-escape book &>/dev/null
+    pdflatex -shell-escape book &>/dev/null
+    popd &>/dev/null
+
+    echo "done"
+}
+
+function clean {
+    pushd "problem$1" &>/dev/null
+    echo -n -e "Cleaning problem$1\t->\t"
+
+    rm -f *.hi *.o
+    rm -rf _minted-* *.aux *.log *.out
+
+    echo "done"
+    popd &>/dev/null
+}
+
+function cleanbook {
+    pushd book &>/dev/null
+
+    echo -e -n "Cleaning book\t\t->\t"
+    rm -f *.aux *.log *.out *.pyg *.toc problem*.tex
+    rm -rf _minted-book
+
+    echo "done"
+    popd &>/dev/null
+}
+
+function delete {
+    pushd "problem$1" &>/dev/null
+    echo -n -e "Deleting problem$1 exe\t->\t"
+
+    rm -f "problem$1"
+
+    echo "done"
+    popd &>/dev/null
+}
+
+function deletepdf {
+    pushd "problem$1" &>/dev/null
+    echo -n -e "Deleting problem$1 pdf\t->\t"
+
+    rm -f "problem$1.pdf"
+
+    echo "done"
+    popd &>/dev/null
+}
+
+function deletebook {
+    pushd book &>/dev/null
+    echo -n -e "Deleting book\t\t->\t"
+
+    rm -f book.pdf
+
+    echo "done"
+    popd &>/dev/null
+}
+
+function run {
+    pushd "problem$1" &>/dev/null
+    echo -n -e "Running problem$1\t->\t"
+
+    ret=$({ time ./problem$1 ; } 2>&1)
+
+    ans=$(echo $ret | cut -d " " -f 1)
+    tim=$(echo $ret | cut -d " " -f 5)
+    min=$(echo $tim | cut -d "m" -f 1)
+    sec=$(echo $tim | cut -d "m" -f 2 | cut -d "s" -f 1)
+    msf=$(echo "60*1000*$min+1000*$sec" | bc)
+    ms=$(printf %.0f $msf)
+
+    total=$(($total+$ms))
+
+    echo -e "${ms}ms\t$ans"
+    popd &>/dev/null
+}
+
+function runh {
+    pushd "problem$1" &>/dev/null
+    echo -n -e "Running problem$1\t->\t"
+
+    ret=$({ time ./problem$1 ; } 2>&1)
+
+    ans=$(echo $ret | cut -d " " -f 1)
+    tim=$(echo $ret | cut -d " " -f 5)
+    min=$(echo $tim | cut -d "m" -f 1)
+    sec=$(echo $tim | cut -d "m" -f 2 | cut -d "s" -f 1)
+    msf=$(echo "60*1000*$min+1000*$sec" | bc)
+    ms=$(printf %.0f $msf)
+
+    total=$(($total+$ms))
+
+    echo -e "${ms}ms"
+    popd &>/dev/null
+}
+
+if [[ $# -eq 0 ]]
+then
+    help
+fi
+
+while [[ $# -gt 0 ]]
+do
+    case $1 in
+        be)
+            build $2
+            shift
+            shift
+            ;;
+        BE)
+            for p in $(ls -v | grep 'problem*' | sed 's/problem//')
+            do
+                build $p
+            done
+            shift
+            ;;
+        bc)
+            buildpdf $2
+            shift
+            shift
+            ;;
+        BC)
+            for p in $(ls -v | grep 'problem*' | sed 's/problem//')
+            do
+                buildpdf $p
+            done
+            shift
+            ;;
+        bb)
+            buildbook
+            shift
+            ;;
+        df)
+            clean $2
+            shift
+            shift
+            ;;
+        DF)
+            for p in $(ls -v | grep 'problem*' | sed 's/problem//')
+            do
+                clean $p
+            done
+            shift
+            ;;
+        dbf)
+            cleanbook
+            shift
+            ;;
+        de)
+            delete $2
+            shift
+            shift
+            ;;
+        DE)
+            for p in $(ls -v | grep 'problem*' | sed 's/problem//')
+            do
+                delete $p
+            done
+            shift
+            ;;
+        dc)
+            deletepdf $2
+            shift
+            shift
+            ;;
+        DC)
+            for p in $(ls -v | grep 'problem*' | sed 's/problem//')
+            do
+                deletepdf $p
+            done
+            shift
+            ;;
+        db)
+            deletebook
+            shift
+            ;;
+        d)
+            clean $2
+            delete $2
+            deletepdf $2
+            shift
+            shift
+            ;;
+        D)
+            for p in $(ls -v | grep 'problem*' | sed 's/problem//')
+            do
+                clean $p
+                delete $p
+                deletepdf $p
+            done
+            cleanbook
+            deletebook
+            shift
+            shift
+            ;;
+        s)
+            run $2
+            shift
+            shift
+            ;;
+        S)
+            total=0
+            for p in $(ls -v | grep 'problem*' | sed 's/problem//')
+            do
+                run $p
+            done
+            echo -e "Total Time (User)\t->\t${total}ms"
+            shift
+            ;;
+        h)
+            runh $2
+            shift
+            shift
+            ;;
+        H)
+            total=0
+            for p in $(ls -v | grep 'problem*' | sed 's/problem//')
+            do
+                runh $p
+            done
+            echo -e "Total Time (User)\t->\t${total}ms"
+            shift
+            ;;
+        g)
+            pushd problem$2 &>/dev/null
+            ghci problem$2.lhs
+            popd &>/dev/null
+            shift
+            shift
+            ;;
+        *)
+            help
+            exit
+            ;;
+esac
+done
